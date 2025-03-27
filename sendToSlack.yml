@@ -1,8 +1,9 @@
 const https = require('https');
 const url = require('url');
 
-async function sendToSlack(slackUrl, payload) {
+async function sendToSlack(slackUrl, message) {
   const parsedUrl = url.parse(slackUrl);
+  const payload = JSON.stringify({ text: message });
   const options = {
     hostname: parsedUrl.hostname,
     path: parsedUrl.path,
@@ -34,9 +35,15 @@ async function sendToSlack(slackUrl, payload) {
   });
 }
 
-exports.handler = async (event, context) => {
-  const snsMessage = event.Records[0].Sns.Message;
+exports.handler = async (event) => {
+  // Extract error details from the failure event
+  const errorMessage = event.responsePayload.errorMessage || 'Unknown error';
+  const functionName = event.requestContext.functionArn.split(':').pop();
+  const message = `Error in Lambda function ${functionName}: ${errorMessage}`;
+
+  // Get Slack webhook URL from environment variable
   const slackUrl = process.env.SLACK_WEBHOOK_URL;
-  const payload = JSON.stringify({ text: `Error in Lambda: ${snsMessage}` });
-  await sendToSlack(slackUrl, payload);
+
+  // Send the message to Slack
+  await sendToSlack(slackUrl, message);
 };

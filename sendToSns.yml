@@ -1,33 +1,43 @@
-const AWS = require('aws-sdk');
-const sns = new AWS.SNS();
+const https = require('https');
 
-exports.handler = async (event, context) => {
-  try {
-    // Example task that might fail
-    // Replace this with your actual Lambda logic
-    console.log('Processing event:', event);
-    const result = someFunctionThatMightThrow(); // Placeholder for your code
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Success', result })
-    };
-  } catch (error) {
-    // Log the error for debugging
-    console.error('Error occurred:', error.message);
+exports.handler = async (event) => {
+    // Extract the city from the event payload
+    const city = event.city;
+    if (!city) {
+        throw new Error('City not provided');
+    }
 
-    // Publish the error message to the SNS topic
-    await sns.publish({
-      TopicArn: 'arn:aws:sns:region:account-id:your-topic-name', // Replace with your SNS topic ARN
-      Message: error.message // Send the error message as a string
-    }).promise();
+    // Get the API key from environment variables
+    const apiKey = process.env.WEATHER_API_KEY;
+    const url = `http://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}`;
 
-    // Re-throw the error to mark the Lambda invocation as failed
-    throw error;
-  }
+    // Make the HTTP request to the OpenWeatherMap API
+    const response = await new Promise((resolve, reject) => {
+        https.get(url, (res) => {
+            let data = '';
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+            res.on('end', () => {
+                try {
+                    const json = JSON.parse(data);
+                    // Check if the API returned an error
+                    if (json.cod !== 200) {
+                        reject(new Error(`API error: ${json.message}`));
+                    } else {
+                        resolve(json);
+                    }
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        }).on('error', (err) => {
+            reject(err);
+        });
+    });
+
+    // Extract temperature and convert from Kelvin to Celsius
+    const temperature = response.main.temp;
+    const temperatureCelsius = temperature - 273.15;
+    console.log(`The temperature in ${city} is ${temperatureCelsius.toFixed(2)}°C`);
 };
-
-// Example function that might throw an error (replace with your actual logic)
-function someFunctionThatMightThrow() {
-  // Simulate an error for demonstration
-  throw new Error('Something went wrong in the Lambda function');
-}
