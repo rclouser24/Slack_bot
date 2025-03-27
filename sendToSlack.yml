@@ -36,14 +36,9 @@ async function sendToSlack(slackUrl, message) {
 }
 
 exports.handler = async (event) => {
-  // Extract error details from the failure event
   const errorMessage = event.responsePayload.errorMessage || 'Unknown error';
   const functionName = event.requestContext.functionArn.split(':').pop();
   const message = `Error in Lambda function ${functionName}: ${errorMessage}`;
-
-  // Get Slack webhook URL from environment variable
   const slackUrl = process.env.SLACK_WEBHOOK_URL;
-
-  // Send the message to Slack
   await sendToSlack(slackUrl, message);
 };
