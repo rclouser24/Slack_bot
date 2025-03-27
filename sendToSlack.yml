@@ -1,0 +1,42 @@
+const https = require('https');
+const url = require('url');
+
+async function sendToSlack(slackUrl, payload) {
+  const parsedUrl = url.parse(slackUrl);
+  const options = {
+    hostname: parsedUrl.hostname,
+    path: parsedUrl.path,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload)
+    }
+  };
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          console.log('Message sent to Slack successfully');
+        } else {
+          console.log(`Failed to send message to Slack: ${res.statusCode} ${data}`);
+        }
+        resolve();
+      });
+    });
+    req.on('error', (e) => {
+      console.error(`Error sending to Slack: ${e.message}`);
+      reject(e);
+    });
+    req.write(payload);
+    req.end();
+  });
+}
+
+exports.handler = async (event, context) => {
+  const snsMessage = event.Records[0].Sns.Message;
+  const slackUrl = process.env.SLACK_WEBHOOK_URL;
+  const payload = JSON.stringify({ text: `Error in Lambda: ${snsMessage}` });
+  await sendToSlack(slackUrl, payload);
+};

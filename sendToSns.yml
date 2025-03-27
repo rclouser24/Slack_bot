@@ -1,0 +1,33 @@
+const AWS = require('aws-sdk');
+const sns = new AWS.SNS();
+
+exports.handler = async (event, context) => {
+  try {
+    // Example task that might fail
+    // Replace this with your actual Lambda logic
+    console.log('Processing event:', event);
+    const result = someFunctionThatMightThrow(); // Placeholder for your code
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Success', result })
+    };
+  } catch (error) {
+    // Log the error for debugging
+    console.error('Error occurred:', error.message);
+
+    // Publish the error message to the SNS topic
+    await sns.publish({
+      TopicArn: 'arn:aws:sns:region:account-id:your-topic-name', // Replace with your SNS topic ARN
+      Message: error.message // Send the error message as a string
+    }).promise();
+
+    // Re-throw the error to mark the Lambda invocation as failed
+    throw error;
+  }
+};
+
+// Example function that might throw an error (replace with your actual logic)
+function someFunctionThatMightThrow() {
+  // Simulate an error for demonstration
+  throw new Error('Something went wrong in the Lambda function');
+}
